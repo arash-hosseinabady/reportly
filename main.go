@@ -16,15 +16,15 @@ func loadEnv() {
 	}
 }
 
-func initLog() {
+func initLog() *os.File {
 	// Initialize logging
 	logFile := appLog.InitLogFile()
-	defer func(logFile *os.File) {
-		err := logFile.Close()
-		if err != nil {
-			log.Panic(err)
-		}
-	}(logFile) // Close log file when done
+	//defer func(logFile *os.File) {
+	//	err := logFile.Close()
+	//	if err != nil {
+	//		log.Panic(err)
+	//	}
+	//}(logFile) // Close log file when done
 
 	// Redirect panics to the log file
 	defer func() {
@@ -32,11 +32,20 @@ func initLog() {
 			log.Panic(fmt.Errorf("%v", err))
 		}
 	}()
+
+	return logFile
 }
 
 func main() {
 	loadEnv()
-	initLog()
+	logFile := initLog()
+
+	defer func(logFile *os.File) {
+		err := logFile.Close()
+		if err != nil {
+			log.Panic(err)
+		}
+	}(logFile) // Close log file when done
 
 	db.InitDB()
 	db.RunMigration()

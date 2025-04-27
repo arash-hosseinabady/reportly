@@ -15,7 +15,7 @@ func RegisterModels() []interface{} {
 func RunMigration() {
 	db := GetDb()
 
-	log.Println("Running migrations per m...")
+	log.Println("Running migrations per model")
 
 	for _, m := range RegisterModels() {
 		tn := GetTableName(m)

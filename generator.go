@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	baseDb "reportly/db"
+	appDb "reportly/db"
 	"reportly/model"
 )
 
@@ -23,8 +23,8 @@ const (
 
 // Run continuously checks and generates reports every 3 seconds
 func Run() {
+	fmt.Println("start reportly service to generate report file...")
 	for {
-		fmt.Println("Checking for reports to generate...")
 		PrepareReports()
 		time.Sleep(3 * time.Second) // Wait before checking again
 	}
@@ -32,7 +32,7 @@ func Run() {
 
 // PrepareReports fetches all pending reports and processes them concurrently
 func PrepareReports() bool {
-	db := baseDb.GetDb()
+	db := appDb.GetDb()
 
 	// Ensure ReportRequest table is migrated
 	if err := db.AutoMigrate(&model.ReportRequest{}); err != nil {
@@ -90,7 +90,7 @@ func createReport(rq model.ReportRequest) {
 
 // runQuery executes the SQL and returns formatted data (rows as string slices)
 func runQuery(rq model.ReportRequest) ([][]string, error) {
-	db := baseDb.GetDb()
+	db := appDb.GetDb()
 
 	// Parse field mappings from JSON (column -> header name)
 	var fields map[string]string
@@ -204,7 +204,7 @@ func generateExcel(data [][]string) {
 
 // setReportCreated updates the DB record to mark the report as generated
 func setReportCreated(id uint) {
-	db := baseDb.GetDb()
+	db := appDb.GetDb()
 	if err := db.Model(&model.ReportRequest{}).
 		Where("id = ?", id).
 		Update("is_created_report", reportCreated).Error; err != nil {
