@@ -19,12 +19,6 @@ func loadEnv() {
 func initLog() *os.File {
 	// Initialize logging
 	logFile := appLog.InitLogFile()
-	//defer func(logFile *os.File) {
-	//	err := logFile.Close()
-	//	if err != nil {
-	//		log.Panic(err)
-	//	}
-	//}(logFile) // Close log file when done
 
 	// Redirect panics to the log file
 	defer func() {

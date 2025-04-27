@@ -73,19 +73,22 @@ func createReport(rq model.ReportRequest) {
 		return
 	}
 
+	var gf = false
 	// Generate appropriate file type
 	switch rq.ReportFileType {
 	case fileTypeCSV:
-		generateCSV(data)
+		gf = generateCSV(data)
 	case fileTypeExcel:
-		generateExcel(data)
+		gf = generateExcel(data)
 	default:
 		log.Printf("unsupported file type: %d", rq.ReportFileType)
 		return
 	}
 
-	// Mark report as created in database
-	setReportCreated(rq.ID)
+	if gf {
+		// Mark report as created in database
+		setReportCreated(rq.ID)
+	}
 }
 
 // runQuery executes the SQL and returns formatted data (rows as string slices)
@@ -151,12 +154,12 @@ func runQuery(rq model.ReportRequest) ([][]string, error) {
 }
 
 // generateCSV writes the data to a .csv file
-func generateCSV(data [][]string) {
+func generateCSV(data [][]string) bool {
 	fileName := fmt.Sprintf("%s/%d.csv", os.Getenv("REPORT_PATH"), time.Now().Unix())
 	file, err := os.Create(fileName)
 	if err != nil {
 		log.Printf("CSV file creation failed: %s", err)
-		return
+		return false
 	}
 	defer func(file *os.File) {
 		err := file.Close()
@@ -176,10 +179,12 @@ func generateCSV(data [][]string) {
 	}
 
 	log.Println("CSV report generated: " + fileName)
+
+	return true
 }
 
 // generateExcel writes the data to an .xlsx file using excelize
-func generateExcel(data [][]string) {
+func generateExcel(data [][]string) bool {
 	fileName := fmt.Sprintf("%s/%d.xlsx", os.Getenv("REPORT_PATH"), time.Now().Unix())
 	xl := excelize.NewFile()
 	sheet := "Sheet1"
@@ -197,9 +202,12 @@ func generateExcel(data [][]string) {
 	// Save file to disk
 	if err := xl.SaveAs(fileName); err != nil {
 		log.Printf("Excel save failed: %s", err)
-	} else {
-		log.Println("Excel report generated: " + fileName)
+		return false
 	}
+
+	log.Println("Excel report generated: " + fileName)
+
+	return true
 }
 
 // setReportCreated updates the DB record to mark the report as generated
