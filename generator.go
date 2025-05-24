@@ -21,7 +21,7 @@ const (
 	reportPending = false // Flag indicating report is pending
 )
 
-// Run continuously checks and generates reports every 3 seconds
+// Run Continuously run checks and generates reports every 3 seconds
 func Run() {
 	fmt.Println("start reportly service to generate report file...")
 	for {
@@ -74,7 +74,7 @@ func createReport(rq model.ReportRequest) {
 	}
 
 	var gf = false
-	// Generate appropriate file type
+	// Generate the appropriate file type
 	switch rq.ReportFileType {
 	case fileTypeCSV:
 		gf = generateCSV(data)
@@ -86,7 +86,7 @@ func createReport(rq model.ReportRequest) {
 	}
 
 	if gf {
-		// Mark report as created in database
+		// Mark report as created in the database
 		setReportCreated(rq.ID)
 	}
 }
@@ -213,9 +213,12 @@ func generateExcel(data [][]string) bool {
 // setReportCreated updates the DB record to mark the report as generated
 func setReportCreated(id uint) {
 	db := appDb.GetDb()
-	if err := db.Model(&model.ReportRequest{}).
+
+	err := db.Model(&model.ReportRequest{}).
 		Where("id = ?", id).
-		Update("is_created_report", reportCreated).Error; err != nil {
+		Update("is_created_report", reportCreated).Error
+
+	if err != nil {
 		log.Printf("update report status failed: %s", err)
 	}
 }
