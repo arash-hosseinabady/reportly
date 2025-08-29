@@ -21,6 +21,8 @@ const (
 	reportPending = false // Flag indicating report is pending
 )
 
+var reportFileName string
+
 // Run Continuously run checks and generates reports every 3 seconds
 func Run() {
 	fmt.Println("start reportly service to generate report file...")
@@ -72,6 +74,8 @@ func createReport(rq model.ReportRequest) {
 		log.Printf("query execution failed: %s", err)
 		return
 	}
+
+	reportFileName = rq.FileName
 
 	var gf = false
 	// Generate the appropriate file type
@@ -155,7 +159,7 @@ func runQuery(rq model.ReportRequest) ([][]string, error) {
 
 // generateCSV writes the data to a .csv file
 func generateCSV(data [][]string) bool {
-	fileName := fmt.Sprintf("%s/%d.csv", os.Getenv("REPORT_PATH"), time.Now().Unix())
+	fileName := fmt.Sprintf("%s/%s.csv", os.Getenv("REPORT_PATH"), reportFileName)
 	file, err := os.Create(fileName)
 	if err != nil {
 		log.Printf("CSV file creation failed: %s", err)
@@ -185,7 +189,7 @@ func generateCSV(data [][]string) bool {
 
 // generateExcel writes the data to an .xlsx file using excelize
 func generateExcel(data [][]string) bool {
-	fileName := fmt.Sprintf("%s/%d.xlsx", os.Getenv("REPORT_PATH"), time.Now().Unix())
+	fileName := fmt.Sprintf("%s/%s.xlsx", os.Getenv("REPORT_PATH"), reportFileName)
 	xl := excelize.NewFile()
 	sheet := "Sheet1"
 
