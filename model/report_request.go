@@ -7,10 +7,10 @@ import (
 )
 
 type ReportRequest struct {
-	ID                uint `gorm:"primarykey"`
-	TableName         string
-	Query             string
-	Fields            datatypes.JSON
+	ID                uint           `gorm:"primarykey"`
+	TableName         string         `gorm:"not null"`
+	Query             string         `gorm:"not null"`
+	Fields            datatypes.JSON `gorm:"not null"`
 	ReportFileType    uint8
 	IsCreatedReport   bool
 	ReportFileAddress string
