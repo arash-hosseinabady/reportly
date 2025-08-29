@@ -23,6 +23,21 @@ const (
 
 var reportFileName string
 
+func setReportFileName(reportName string, reportType uint8) {
+	fileName := fmt.Sprintf(
+		"%s/%s_%s.csv",
+		os.Getenv("REPORT_PATH"),
+		reportName,
+		time.Now().Format("20060102150405"))
+
+	switch reportType {
+	case fileTypeCSV:
+		reportFileName = fmt.Sprintf("%s.csv", fileName)
+	case fileTypeExcel:
+		reportFileName = fmt.Sprintf("%s.xlsx", fileName)
+	}
+}
+
 // Run Continuously run checks and generates reports every 3 seconds
 func Run() {
 	fmt.Println("start reportly service to generate report file...")
@@ -75,7 +90,7 @@ func createReport(rq model.ReportRequest) {
 		return
 	}
 
-	reportFileName = rq.FileName
+	setReportFileName(rq.FileName, rq.ReportFileType)
 
 	var gf = false
 	// Generate the appropriate file type
@@ -159,8 +174,7 @@ func runQuery(rq model.ReportRequest) ([][]string, error) {
 
 // generateCSV writes the data to a .csv file
 func generateCSV(data [][]string) bool {
-	fileName := fmt.Sprintf("%s/%s.csv", os.Getenv("REPORT_PATH"), reportFileName)
-	file, err := os.Create(fileName)
+	file, err := os.Create(reportFileName)
 	if err != nil {
 		log.Printf("CSV file creation failed: %s", err)
 		return false
@@ -182,14 +196,13 @@ func generateCSV(data [][]string) bool {
 		}
 	}
 
-	log.Println("CSV report generated: " + fileName)
+	log.Println("CSV report generated: " + reportFileName)
 
 	return true
 }
 
 // generateExcel writes the data to an .xlsx file using excelize
 func generateExcel(data [][]string) bool {
-	fileName := fmt.Sprintf("%s/%s.xlsx", os.Getenv("REPORT_PATH"), reportFileName)
 	xl := excelize.NewFile()
 	sheet := "Sheet1"
 
@@ -204,12 +217,12 @@ func generateExcel(data [][]string) bool {
 	}
 
 	// Save file to disk
-	if err := xl.SaveAs(fileName); err != nil {
+	if err := xl.SaveAs(reportFileName); err != nil {
 		log.Printf("Excel save failed: %s", err)
 		return false
 	}
 
-	log.Println("Excel report generated: " + fileName)
+	log.Println("Excel report generated: " + reportFileName)
 
 	return true
 }
