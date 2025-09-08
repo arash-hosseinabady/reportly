@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"github.com/xuri/excelize/v2"
 	"log"
 	"os"
+	"reportly/storage_service"
 	"strings"
 	"time"
 
@@ -26,7 +28,7 @@ var reportFileName string
 func setReportFileName(reportName string, reportType uint8) {
 	fileName := fmt.Sprintf(
 		"%s/%s_%s.csv",
-		os.Getenv("REPORT_PATH"),
+		os.Getenv("LOCAL_STORAGE_PATH"),
 		reportName,
 		time.Now().Format("20060102150405"))
 
@@ -41,6 +43,7 @@ func setReportFileName(reportName string, reportType uint8) {
 // Run Continuously run checks and generates reports every 3 seconds
 func Run() {
 	fmt.Println("start reportly service to generate report file...")
+
 	for {
 		PrepareReports()
 		time.Sleep(3 * time.Second) // Wait before checking again
@@ -82,7 +85,6 @@ func PrepareReports() bool {
 
 // createReport handles generating the actual report file and updating status
 func createReport(rq model.ReportRequest) {
-
 	// Run SQL query and format data
 	data, err := runQuery(rq)
 	if err != nil {
@@ -92,22 +94,43 @@ func createReport(rq model.ReportRequest) {
 
 	setReportFileName(rq.FileName, rq.ReportFileType)
 
-	var gf = false
+	//var gf = false
+	var content []byte
 	// Generate the appropriate file type
 	switch rq.ReportFileType {
 	case fileTypeCSV:
-		gf = generateCSV(data)
+		content, err = generateCSV(data)
 	case fileTypeExcel:
-		gf = generateExcel(data)
+		content, err = generateExcel(data)
 	default:
 		log.Printf("unsupported file type: %d", rq.ReportFileType)
 		return
 	}
 
-	if gf {
-		// Mark report as created in the database
-		setReportCreated(rq.ID)
+	if err != nil {
+		log.Printf("generate report file failed: %s", err)
+		return
 	}
+
+	var s storage_service.StorageService
+	s, err = storage_service.NewStorageService()
+
+	if err != nil {
+		log.Printf("failed to init storage: %s", err)
+	}
+
+	var savedFilename string
+	savedFilename, err = s.Save(reportFileName, content)
+
+	if err != nil {
+		log.Printf("failed to save report file: %s", err)
+		return
+	}
+
+	rq.StorageDriver = storage_service.Driver
+	rq.ReportFileAddress = savedFilename
+	// Mark report as created in the database
+	setReportCreated(rq)
 }
 
 // runQuery executes the SQL and returns formatted data (rows as string slices)
@@ -173,69 +196,55 @@ func runQuery(rq model.ReportRequest) ([][]string, error) {
 }
 
 // generateCSV writes the data to a .csv file
-func generateCSV(data [][]string) bool {
-	file, err := os.Create(reportFileName)
-	if err != nil {
-		log.Printf("CSV file creation failed: %s", err)
-		return false
-	}
-	defer func(file *os.File) {
-		err := file.Close()
-		if err != nil {
-			log.Printf("CSV file close failed: %s", err)
-		}
-	}(file)
+func generateCSV(data [][]string) ([]byte, error) {
+	var buf bytes.Buffer
+	writer := csv.NewWriter(&buf)
 
-	writer := csv.NewWriter(file)
-	defer writer.Flush()
-
-	// Write each row to the CSV
 	for _, row := range data {
 		if err := writer.Write(row); err != nil {
-			log.Printf("CSV write error: %s", err)
+			return nil, err
 		}
 	}
+	writer.Flush()
 
-	log.Println("CSV report generated: " + reportFileName)
+	if err := writer.Error(); err != nil {
+		return nil, err
+	}
 
-	return true
+	log.Println("CSV report generated in memory")
+	return buf.Bytes(), nil
 }
 
 // generateExcel writes the data to an .xlsx file using excelize
-func generateExcel(data [][]string) bool {
+func generateExcel(data [][]string) ([]byte, error) {
 	xl := excelize.NewFile()
 	sheet := "Sheet1"
 
-	// Set each cell value
 	for i, row := range data {
 		for j, cell := range row {
 			cellName, _ := excelize.CoordinatesToCellName(j+1, i+1)
 			if err := xl.SetCellValue(sheet, cellName, cell); err != nil {
-				log.Printf("Excel cell write error: %s", err)
+				return nil, err
 			}
 		}
 	}
 
-	// Save file to disk
-	if err := xl.SaveAs(reportFileName); err != nil {
-		log.Printf("Excel save failed: %s", err)
-		return false
+	var buf bytes.Buffer
+	if err := xl.Write(&buf); err != nil {
+		return nil, err
 	}
 
-	log.Println("Excel report generated: " + reportFileName)
-
-	return true
+	log.Println("Excel report generated in memory")
+	return buf.Bytes(), nil
 }
 
 // setReportCreated updates the DB record to mark the report as generated
-func setReportCreated(id uint) {
+func setReportCreated(req model.ReportRequest) {
 	db := appDb.GetDb()
 
-	err := db.Model(&model.ReportRequest{}).
-		Where("id = ?", id).
-		Update("is_created_report", reportCreated).Error
+	req.IsCreatedReport = reportCreated
 
-	if err != nil {
+	if err := db.Save(req).Error; err != nil {
 		log.Printf("update report status failed: %s", err)
 	}
 }

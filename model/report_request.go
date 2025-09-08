@@ -14,6 +14,7 @@ type ReportRequest struct {
 	Fields            datatypes.JSON `gorm:"not null"`
 	ReportFileType    uint8
 	IsCreatedReport   bool
+	StorageDriver     string
 	ReportFileAddress string
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
